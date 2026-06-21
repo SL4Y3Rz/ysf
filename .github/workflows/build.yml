@@ -24,6 +24,10 @@ jobs:
             -o memory_debugger_sideload.dylib \
             memory_debugger_sideload.cpp
 
+      - name: Install dpkg via Homebrew
+        run: |
+          brew install dpkg
+
       - name: Create iOS DEB Package Structure
         run: |
           mkdir -p deb_pkg/DEBIAN
