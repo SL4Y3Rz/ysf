@@ -2,6 +2,9 @@ name: Build iOS Dylib
 
 on: [push]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -21,8 +24,22 @@ jobs:
             -o memory_debugger_sideload.dylib \
             memory_debugger_sideload.cpp
 
-      - name: Upload Dylib
+      - name: Upload Dylib Artifact
         uses: actions/upload-artifact@v4
         with:
           name: memory_debugger_sideload
           path: memory_debugger_sideload.dylib
+
+      - name: Create Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: memory_debugger_sideload.dylib
+          tag_name: build-${{ github.run_number }}
+          body: |
+            iOS Dylib build #${{ github.run_number }}
+            
+            Built on: ${{ github.event.head_commit.timestamp }}
+            Commit: ${{ github.event.head_commit.id }}
+          draft: false
+          prerelease: false
