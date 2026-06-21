@@ -1,0 +1,28 @@
+name: Build iOS Dylib
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile Dylib
+        run: |
+          clang++ -arch arm64 \
+            -std=c++17 \
+            -dynamiclib \
+            -O2 \
+            -fPIC \
+            -framework Foundation \
+            -miphoneos-version-min=14.0 \
+            -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+            -o memory_debugger_sideload.dylib \
+            memory_debugger_sideload.cpp
+
+      - name: Upload Dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory_debugger_sideload
+          path: memory_debugger_sideload.dylib
