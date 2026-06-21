@@ -1,4 +1,4 @@
-name: Build iOS Dylib
+name: Build iOS Memory Debugger DEB
 
 on: [push]
 
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile Dylib
+      - name: Compile iOS Dylib
         run: |
           clang++ -arch arm64 \
             -std=c++17 \
@@ -24,22 +24,98 @@ jobs:
             -o memory_debugger_sideload.dylib \
             memory_debugger_sideload.cpp
 
-      - name: Upload Dylib Artifact
+      - name: Create iOS DEB Package Structure
+        run: |
+          mkdir -p deb_pkg/DEBIAN
+          mkdir -p deb_pkg/usr/lib
+          mkdir -p deb_pkg/usr/share/doc/memory-debugger
+          
+          # Copy dylib to proper location
+          cp memory_debugger_sideload.dylib deb_pkg/usr/lib/
+
+      - name: Create DEBIAN Control File
+        run: |
+          cat > deb_pkg/DEBIAN/control << 'EOF'
+          Package: com.memory.debugger.sideload
+          Name: Memory Debugger Sideload
+          Version: 1.0.0-${{ github.run_number }}
+          Architecture: iphoneos-arm64
+          Description: iOS Memory Debugger (Cheat Engine-like)
+           Scan and modify memory values in iOS apps.
+           For use with KSign sideloading.
+          Maintainer: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+          Author: ${{ github.actor }}
+          EOF
+
+      - name: Create postinst Script
+        run: |
+          mkdir -p deb_pkg/DEBIAN
+          cat > deb_pkg/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          echo "[Memory Debugger] Installation complete"
+          exit 0
+          EOF
+          chmod 755 deb_pkg/DEBIAN/postinst
+
+      - name: Create prerm Script
+        run: |
+          cat > deb_pkg/DEBIAN/prerm << 'EOF'
+          #!/bin/bash
+          echo "[Memory Debugger] Removing..."
+          exit 0
+          EOF
+          chmod 755 deb_pkg/DEBIAN/prerm
+
+      - name: Set DEB Permissions
+        run: |
+          chmod -R 0755 deb_pkg/DEBIAN
+          chmod -R 0755 deb_pkg/usr
+
+      - name: Build DEB Package
+        run: |
+          dpkg-deb --build deb_pkg memory-debugger-sideload.deb
+          ls -lh memory-debugger-sideload.deb
+
+      - name: Verify DEB Package
+        run: |
+          dpkg-deb -I memory-debugger-sideload.deb
+          dpkg-deb -c memory-debugger-sideload.deb
+
+      - name: Upload DEB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: memory_debugger_sideload
-          path: memory_debugger_sideload.dylib
+          name: memory-debugger-sideload-deb
+          path: memory-debugger-sideload.deb
+          retention-days: 90
 
       - name: Create Release
         if: success()
         uses: softprops/action-gh-release@v1
         with:
-          files: memory_debugger_sideload.dylib
+          files: memory-debugger-sideload.deb
           tag_name: build-${{ github.run_number }}
           body: |
-            iOS Dylib build #${{ github.run_number }}
+            🎮 iOS Memory Debugger DEB Package - Build #${{ github.run_number }}
             
-            Built on: ${{ github.event.head_commit.timestamp }}
-            Commit: ${{ github.event.head_commit.id }}
+            **For KSign Sideloading**
+            
+            📦 Package: memory-debugger-sideload.deb
+            📱 Target: iOS 14.0+
+            🏗️ Architecture: arm64
+            
+            **Features:**
+            - Memory scanning (Cheat Engine-style)
+            - Value freezing & modification
+            - Memory watching
+            - Direct memory read/write
+            
+            **Usage with KSign:**
+            1. Download the .deb file
+            2. Open in KSign app
+            3. Select target app to inject
+            4. Sign and install
+            
+            **Built:** ${{ github.event.head_commit.timestamp }}
+            **Commit:** ${{ github.event.head_commit.id }}
           draft: false
           prerelease: false
